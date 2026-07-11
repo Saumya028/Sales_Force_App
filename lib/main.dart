@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'screens/login_screen.dart';
 import 'screens/home/home_shell_screen.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/admin_home_screen.dart';
 import 'services/profile_service.dart';
 
 Future<void> main() async {
@@ -67,12 +67,62 @@ class _AuthGateState extends State<AuthGate> {
             }
             final profile = profileSnapshot.data!;
             if (profile.role == 'admin') {
-              return const AdminDashboardScreen();
+              return const AdminHomeScreen();
+            }
+            if (!profile.isActive) {
+              return const _AccountDeactivatedScreen();
             }
             return const HomeShellScreen();
           },
         );
       },
+    );
+  }
+}
+
+/// Shown when a salesperson's profile has been flagged 'inactive' by an
+/// Admin (see AdminUserService.setSalesmanStatus). Signs them out
+/// immediately — AuthGate's StreamBuilder then rebuilds to LoginScreen on
+/// its own once the auth state change fires.
+class _AccountDeactivatedScreen extends StatefulWidget {
+  const _AccountDeactivatedScreen();
+
+  @override
+  State<_AccountDeactivatedScreen> createState() => _AccountDeactivatedScreenState();
+}
+
+class _AccountDeactivatedScreenState extends State<_AccountDeactivatedScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => supabase.auth.signOut());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.block, size: 56, color: Colors.red.shade400),
+              const SizedBox(height: 16),
+              const Text(
+                'Account Deactivated',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your account has been deactivated by an admin. Please contact your manager.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

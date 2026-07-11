@@ -15,9 +15,11 @@ fmcg_salesman_app/
 │   ├── main.dart                     # App entry + role-based auth gate
 │   ├── config/supabase_config.dart   # Your Supabase URL + anon key go here
 │   ├── models/                       # Outlet, Product, SalesOrder, Profile, AdminOrder,
-│   │                                 # OrderItemDetail, BeatPlan, AttendanceRecord, LeaveRequest
+│   │                                 # OrderItemDetail, BeatPlan, AttendanceRecord, LeaveRequest,
+│   │                                 # AdminLeaveRequest
 │   ├── services/                     # Auth, Outlet, Product, Order, Profile, AdminOrder,
-│   │                                 # BeatPlan, Attendance, Leave (Supabase calls)
+│   │                                 # BeatPlan, Attendance, Leave, AdminUser, AdminLeave,
+│   │                                 # AdminBeatPlan, AdminDashboard (Supabase calls)
 │   ├── widgets/coming_soon.dart       # Shared "Coming Soon" dialog/placeholder screen
 │   └── screens/
 │       ├── login_screen.dart
@@ -28,14 +30,16 @@ fmcg_salesman_app/
 │       │   order_history_screen.dart, add_outlet_screen.dart, outlet_picker_screen.dart,
 │       │   today_route_screen.dart, attendance_screen.dart, apply_leave_screen.dart,
 │       │   profile_screen.dart
-│       └── admin/admin_dashboard_screen.dart, admin_order_detail_screen.dart  # Admin side
+│       └── admin/admin_home_screen.dart, admin_salesmen_screen.dart, add_salesman_screen.dart,
+│           admin_dashboard_screen.dart, admin_order_detail_screen.dart  # Admin side
 └── supabase/
     ├── schema.sql                          # Core DB schema + RLS + sample products (run first)
     ├── admin_migration.sql                 # Adds admin role support + policies (run second)
     ├── add_outlet_migration.sql            # Lets salespeople add new shops (run third)
     ├── company_id_login_migration.sql      # Supports the Company ID login screen (run fourth)
     ├── beat_and_attendance_migration.sql   # Beat plans ("Assigned Area") + attendance (run fifth)
-    └── leave_and_checkout_migration.sql    # Check-out + leave requests + attachments (run sixth)
+    ├── leave_and_checkout_migration.sql    # Check-out + leave requests + attachments (run sixth)
+    └── admin_management_migration.sql      # Admin "Manage Salesmen" (add/remove/routes) (run seventh)
 ```
 
 ---
@@ -253,11 +257,46 @@ static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
    - **Submit Leave Request** inserts the row (and uploads the attachment,
      if any), then clears the form and refreshes Past Requests right there
      on the same screen so you can see it land immediately.
-5. There's no Admin UI yet to approve/reject leave requests — do it
-   manually for now:
-   ```sql
-   update leave_requests set status = 'approved' where id = 'PASTE_LEAVE_REQUEST_ID';
-   ```
+5. Leave requests can now be approved/rejected from the app itself — see
+   **Step 5g** below.
+
+## Step 5g — Admin Dashboard (Sales Overview + Manage Salesmen)
+
+1. In **SQL Editor**, paste the contents of `supabase/admin_management_migration.sql`
+   and run it. This adds:
+   - A `status` column on `profiles` (`active`/`inactive`) used to
+     soft-deactivate a salesman (a client app has no service-role key, so
+     it can't delete an `auth.users` row outright — deactivating instead
+     signs them out and blocks re-login, while keeping their order/outlet
+     history intact).
+   - An `admin_remarks` column on `leave_requests`, for an optional
+     rejection note.
+   - An **"Admin can update all profiles"** policy, so an Admin can flip
+     someone else's `status`.
+2. Logging in as an Admin now opens a **Sales Overview** home dashboard
+   instead of going straight to the orders list:
+   - **Stat cards** — Total Salesmen, Present Today, Total Orders, Pending
+     Orders, Today's Visits, Revenue MTD — all computed live from
+     `profiles`/`attendance`/`orders`.
+   - **This Week — Orders vs Visits** — a simple bar chart of order count
+     and distinct-outlet visit count per day, Monday through Saturday.
+   - **Today's Attendance** — a donut of Present/Late/Absent.
+   - **Quick Actions** — **Salesmen** and **Orders** are fully wired up;
+     **Dealers** and **Reports** open a "Coming Soon" dialog (not built in
+     this MVP yet).
+3. Tapping **Salesmen** opens **Manage Salesmen**, with two tabs:
+   - **Salesmen** — tap **Add Salesman** (top right) to create a new
+     salesperson login (Full Name, Company ID, temporary password — share
+     the Company ID + password with them so they can log in). Each row
+     shows that salesman's zone for today (from `beat_plans`) and has
+     **Assign Route** (zone name, optional coverage in km, and a date —
+     defaults to today; assigning again for the same day updates it) and
+     **Remove**/**Reactivate** (the soft-deactivate flow described above).
+   - **Leave Requests** — every request across every salesman, newest
+     first, with **Approve**/**Reject** (optional reason) on anything
+     still `pending`.
+4. Tapping **Orders** opens the existing Pending Approval / All Orders
+   screen from Step 5b, unchanged.
 
 ## Step 6 — Install Flutter (if you haven't already)
 
