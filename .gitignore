@@ -1,0 +1,74 @@
+# =========================
+# Flutter / Dart
+# =========================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Generated API docs
+doc/api/
+
+# =========================
+# IDEs
+# =========================
+.idea/
+*.iml
+
+# VS Code (optional - remove if you want to share workspace settings)
+.vscode/
+
+# =========================
+# Android
+# =========================
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# =========================
+# iOS / macOS
+# =========================
+**/ios/Flutter/.last_build_id
+
+# =========================
+# Linux / Windows / macOS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Supabase
+# =========================
+supabase/.temp/
+supabase/.branches/
+
+# =========================
+# Misc
+# =========================
+*.swp
+*.swo
+*.pyc
+.history/
+.build/
+.buildlog/
+.atom/
+.svn/
+.swiftpm/
+migrate_working_dir/
