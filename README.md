@@ -175,6 +175,92 @@ Business Card photos, and an auto-captured GPS location.
    `contact_number` columns from `add_outlet_migration.sql` (Step 5c), so
    that migration must be run first if you haven't already.
 
+## Step 5c-3 — "Territory" live map (View Route)
+
+The **View Route** quick action on the Home tab (previously a "Coming
+Soon" placeholder) now opens a **Google Map** showing only the shops on
+the salesperson's route for *today*, plotted relative to their live GPS
+location, with All/Nearby/Pending/Visited/Not Visited filters and a
+distance-sorted list underneath.
+
+Two things had to change to make "only this route's shops" possible:
+Admin now picks specific shops (not just a zone name) when assigning a
+route, and that needs a Google Maps API key. Both are set up below.
+
+### 5c-3a — Run the new migration
+
+In **SQL Editor**, paste the contents of
+`supabase/route_outlets_migration.sql` and run it (after `schema.sql`,
+`admin_migration.sql`, and `beat_and_attendance_migration.sql`). This
+adds a `route_outlets` table linking a `beat_plans` row to specific
+`outlets` rows, with RLS so a salesperson can only see the shops on
+their *own* route.
+
+### 5c-3b — Get a Google Maps API key
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/),
+   create (or pick) a project, then enable **"Maps SDK for Android"**
+   and **"Maps SDK for iOS"** under APIs & Services → Library.
+2. Under APIs & Services → Credentials, create an API key. Google
+   Maps requires a billing account on the project, but includes a
+   recurring free monthly credit that comfortably covers dev/test use —
+   no charge for typical usage while building.
+3. (Recommended) Restrict the key to the two Maps SDKs above, and to
+   your app's Android package name / iOS bundle ID once you know them.
+
+### 5c-3c — Wire the key into the app
+
+Run `flutter pub get` first (pulls in `google_maps_flutter`), then
+`flutter create .` if you haven't yet (Step 7) so the platform folders
+exist, then:
+
+**Android** — in `android/app/src/main/AndroidManifest.xml`, inside
+`<application>` (as a sibling of `<activity>`):
+```xml
+<meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="YOUR_API_KEY_HERE" />
+```
+Also add, inside `<manifest>`, above `<application>` (same as Step
+5c-2's location permissions — skip if already present):
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+**iOS** — in `ios/Runner/AppDelegate.swift`, add the import and one line
+in `application(_:didFinishLaunchingWithOptions:)` *before* the
+`GeneratedPluginRegistrant.register(...)` call:
+```swift
+import GoogleMaps
+// ...
+GMSServices.provideAPIKey("YOUR_API_KEY_HERE")
+```
+And confirm `ios/Runner/Info.plist` still has the location keys from
+Step 5c-2 (`NSLocationWhenInUseUsageDescription`, etc).
+
+### How it behaves
+
+- Only shops an Admin explicitly attached to today's route (see next
+  section) are plotted — not every dealer assigned to the salesperson.
+- If no route has been assigned for today, the screen shows a "No route
+  assigned for today" empty state instead of an empty map.
+- Green pins = visited today (an order or visit outcome was logged),
+  orange = pending. Tap a pin for a quick summary card with a "View
+  Details" shortcut, or tap a list row directly. The blue dot (Google
+  Maps' built-in "My Location") is the salesperson's live position.
+- Only dealers with a saved GPS location (captured automatically by the
+  "Add New Dealer" screen, Step 5c-2) can appear as pins — others still
+  show in the list with "Distance unknown" rather than being hidden.
+
+### 5c-3d — Admin: picking shops for a route
+
+In the Admin dashboard → **Manage Salesmen** → **Assign Route**, the
+dialog now includes a checklist of that salesman's shops under the zone
+name / date fields. Only the checked shops will appear on that
+salesman's Territory map for the selected date — this reuses the
+existing zone/date fields, so no separate screen was needed.
+
 ## Step 5d — Company ID login screen
 
 1. In **SQL Editor**, paste the contents of `supabase/company_id_login_migration.sql`

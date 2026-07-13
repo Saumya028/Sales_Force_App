@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/profile.dart';
 import '../../models/beat_plan.dart';
+import '../../models/outlet.dart';
 import '../../models/admin_leave_request.dart';
 import '../../services/admin_user_service.dart';
 import '../../services/admin_beat_plan_service.dart';
@@ -118,6 +119,27 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
     );
     DateTime selectedDate = DateTime.now();
 
+    // Fetch this salesman's dealers up front, plus which ones are
+    // already on today's route (if we're editing an existing plan), so
+    // the dialog can show a pre-checked shop list.
+    List<Outlet> outlets;
+    Set<String> selectedOutletIds;
+    try {
+      final results = await Future.wait([
+        _beatPlanService.getSalesmanOutlets(profile.id),
+        existingPlan != null
+            ? _beatPlanService.getRouteOutletIds(existingPlan.id)
+            : Future.value(<String>[]),
+      ]);
+      outlets = results[0] as List<Outlet>;
+      selectedOutletIds = (results[1] as List<String>).toSet();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load dealers: $e')));
+      }
+      return;
+    }
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -125,44 +147,101 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
           builder: (context, setDialogState) {
             return AlertDialog(
               title: Text('Assign Route — ${profile.fullName ?? 'Salesman'}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: zoneController,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Zone / Area Name *',
-                      hintText: 'e.g. South Delhi Zone-3',
-                    ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: zoneController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Zone / Area Name *',
+                          hintText: 'e.g. South Delhi Zone-3',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: coverageController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Coverage (km)',
+                          hintText: 'Optional',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                            lastDate: DateTime.now().add(const Duration(days: 60)),
+                          );
+                          if (picked != null) setDialogState(() => selectedDate = picked);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: 'Date'),
+                          child: Text(DateFormat('d MMM yyyy').format(selectedDate)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Shops on this route (${selectedOutletIds.length} selected)',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Only checked shops will appear on this salesman\'s route map.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 8),
+                      if (outlets.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'This salesman has no dealers assigned yet.',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        )
+                      else
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 260),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ListView(
+                            shrinkWrap: true,
+                            children: outlets.map((outlet) {
+                              final checked = selectedOutletIds.contains(outlet.id);
+                              return CheckboxListTile(
+                                dense: true,
+                                value: checked,
+                                title: Text(outlet.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                subtitle: outlet.address != null && outlet.address!.isNotEmpty
+                                    ? Text(outlet.address!, maxLines: 1, overflow: TextOverflow.ellipsis)
+                                    : (outlet.latitude == null
+                                        ? const Text('No GPS location saved', style: TextStyle(color: Colors.orange))
+                                        : null),
+                                onChanged: (v) {
+                                  setDialogState(() {
+                                    if (v == true) {
+                                      selectedOutletIds.add(outlet.id);
+                                    } else {
+                                      selectedOutletIds.remove(outlet.id);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: coverageController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Coverage (km)',
-                      hintText: 'Optional',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                        lastDate: DateTime.now().add(const Duration(days: 60)),
-                      );
-                      if (picked != null) setDialogState(() => selectedDate = picked);
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Date'),
-                      child: Text(DateFormat('d MMM yyyy').format(selectedDate)),
-                    ),
-                  ),
-                ],
+                ),
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -184,11 +263,15 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
 
     final coverage = double.tryParse(coverageController.text.trim());
     try {
-      await _beatPlanService.assignRoute(
+      final beatPlanId = await _beatPlanService.assignRoute(
         salespersonId: profile.id,
         zoneName: zoneController.text,
         coverageKm: coverage,
         date: selectedDate,
+      );
+      await _beatPlanService.setRouteOutlets(
+        beatPlanId: beatPlanId,
+        outletIds: selectedOutletIds.toList(),
       );
       _refreshSalesmen();
       if (mounted) {

@@ -13,6 +13,7 @@ import '../../services/attendance_service.dart';
 import '../add_outlet_screen.dart';
 import '../outlet_picker_screen.dart';
 import '../today_route_screen.dart';
+import '../territory_screen.dart';
 import '../../widgets/coming_soon.dart';
 
 /// The Salesman Home dashboard — first tab of the bottom nav.
@@ -159,11 +160,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _viewRoute() {
-    showComingSoon(
-      context,
-      feature: 'Live Route Mapping',
-      detail: 'Turn-by-turn navigation and route optimization across your beat are coming soon.',
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const TerritoryScreen()))
+        .then((_) => _refresh());
   }
 
   void _viewAllRoute() {
