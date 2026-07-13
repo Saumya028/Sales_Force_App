@@ -135,6 +135,46 @@ static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
 2. That's it, no other setup needed. The app's dashboard already ships with
    an **Add New Shop** button and a search bar (see Code Walkthrough below).
 
+## Step 5c-2 — "Add New Dealer" redesign (owner, GST, photos, GPS)
+
+The **Add Dealer** button (Home tab quick action) now opens a full dealer
+onboarding form: Dealer Name, Owner Name, Mobile Number, GST Number,
+Address, Business Type (Retailer/Wholesaler/Distributor), Shop Front +
+Business Card photos, and an auto-captured GPS location.
+
+1. In **SQL Editor**, paste the contents of
+   `supabase/add_dealer_fields_migration.sql` and run it. This adds the
+   `gst_number`, `business_type`, `shop_front_photo_url`,
+   `business_card_photo_url`, `latitude`, `longitude` columns to `outlets`,
+   and creates a public `dealer-photos` storage bucket with policies so a
+   salesperson can only upload into their own folder.
+2. Run `flutter pub get` — this pulls in the two new packages the form
+   needs: `image_picker` (camera/gallery capture) and `geolocator` (GPS).
+3. **Add platform permissions.** Since this project only ships
+   `pubspec.yaml` + `lib/` (see Step 7), these need to be added to the
+   platform folders *after* you run `flutter create .`:
+
+   **`android/app/src/main/AndroidManifest.xml`** — inside `<manifest>`, above `<application>`:
+   ```xml
+   <uses-permission android:name="android.permission.CAMERA" />
+   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+   ```
+
+   **`ios/Runner/Info.plist`** — inside the outer `<dict>`:
+   ```xml
+   <key>NSCameraUsageDescription</key>
+   <string>Used to photograph the dealer's shop front and business card.</string>
+   <key>NSPhotoLibraryUsageDescription</key>
+   <string>Used to attach a photo from your gallery.</string>
+   <key>NSLocationWhenInUseUsageDescription</key>
+   <string>Used to auto-capture the dealer's GPS location when onboarding.</string>
+   ```
+
+4. Owner Name and Mobile Number reuse the existing `contact_person` /
+   `contact_number` columns from `add_outlet_migration.sql` (Step 5c), so
+   that migration must be run first if you haven't already.
+
 ## Step 5d — Company ID login screen
 
 1. In **SQL Editor**, paste the contents of `supabase/company_id_login_migration.sql`

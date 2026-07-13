@@ -1,16 +1,35 @@
+/// A dealer/shop assigned to (or created by) a salesperson.
+///
+/// Naming note: `ownerName`/`mobileNumber` are stored in the existing
+/// `contact_person`/`contact_number` DB columns (they mean the same thing —
+/// no migration needed to rename them). Everything else (GST, business
+/// type, photos, GPS) lives in new columns added by
+/// `add_dealer_fields_migration.sql`.
 class Outlet {
   final String id;
   final String name;
   final String? address;
-  final String? contactPerson;
-  final String? contactNumber;
+  final String? ownerName;
+  final String? mobileNumber;
+  final String? gstNumber;
+  final String? businessType; // 'retailer' | 'wholesaler' | 'distributor'
+  final String? shopFrontPhotoUrl;
+  final String? businessCardPhotoUrl;
+  final double? latitude;
+  final double? longitude;
 
   Outlet({
     required this.id,
     required this.name,
     this.address,
-    this.contactPerson,
-    this.contactNumber,
+    this.ownerName,
+    this.mobileNumber,
+    this.gstNumber,
+    this.businessType,
+    this.shopFrontPhotoUrl,
+    this.businessCardPhotoUrl,
+    this.latitude,
+    this.longitude,
   });
 
   factory Outlet.fromJson(Map<String, dynamic> json) {
@@ -18,8 +37,14 @@ class Outlet {
       id: json['id'],
       name: json['name'],
       address: json['address'],
-      contactPerson: json['contact_person'],
-      contactNumber: json['contact_number'],
+      ownerName: json['contact_person'],
+      mobileNumber: json['contact_number'],
+      gstNumber: json['gst_number'],
+      businessType: json['business_type'],
+      shopFrontPhotoUrl: json['shop_front_photo_url'],
+      businessCardPhotoUrl: json['business_card_photo_url'],
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -30,10 +55,18 @@ class Outlet {
     return {
       'name': name,
       if (address != null && address!.isNotEmpty) 'address': address,
-      if (contactPerson != null && contactPerson!.isNotEmpty)
-        'contact_person': contactPerson,
-      if (contactNumber != null && contactNumber!.isNotEmpty)
-        'contact_number': contactNumber,
+      if (ownerName != null && ownerName!.isNotEmpty)
+        'contact_person': ownerName,
+      if (mobileNumber != null && mobileNumber!.isNotEmpty)
+        'contact_number': mobileNumber,
+      if (gstNumber != null && gstNumber!.isNotEmpty) 'gst_number': gstNumber,
+      if (businessType != null && businessType!.isNotEmpty)
+        'business_type': businessType,
+      if (shopFrontPhotoUrl != null) 'shop_front_photo_url': shopFrontPhotoUrl,
+      if (businessCardPhotoUrl != null)
+        'business_card_photo_url': businessCardPhotoUrl,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     };
   }
 }

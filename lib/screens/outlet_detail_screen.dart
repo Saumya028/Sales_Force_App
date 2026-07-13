@@ -80,8 +80,11 @@ class _OutletDetailScreenState extends State<OutletDetailScreen> {
                 children: [
                   Text(outlet.address ?? '', style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 4),
-                  if (outlet.contactPerson != null) Text('Contact: ${outlet.contactPerson}'),
-                  if (outlet.contactNumber != null) Text('Phone: ${outlet.contactNumber}'),
+                  if (outlet.ownerName != null) Text('Owner: ${outlet.ownerName}'),
+                  if (outlet.mobileNumber != null) Text('Phone: ${outlet.mobileNumber}'),
+                  if (outlet.gstNumber != null) Text('GST: ${outlet.gstNumber}'),
+                  if (outlet.businessType != null)
+                    Text('Type: ${outlet.businessType![0].toUpperCase()}${outlet.businessType!.substring(1)}'),
                   const SizedBox(height: 32),
                   const Text('Visit Outcome', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
