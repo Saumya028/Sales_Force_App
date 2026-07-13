@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/sales_order.dart';
 import '../models/product.dart';
+import '../models/order_item_detail.dart';
 
 class OrderService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -92,6 +93,16 @@ class OrderService {
         .lt('created_at', startOfNextDay.toIso8601String())
         .order('created_at', ascending: false);
     return (data as List).map((e) => SalesOrder.fromJson(e)).toList();
+  }
+
+  /// Returns the line items for one of the current salesperson's orders
+  /// (used by the Order Details screen).
+  Future<List<OrderItemDetail>> getOrderItems(String orderId) async {
+    final data = await _client
+        .from('order_items')
+        .select('*, products(name)')
+        .eq('order_id', orderId);
+    return (data as List).map((e) => OrderItemDetail.fromJson(e)).toList();
   }
 
   /// Count of this salesperson's follow-ups that are scheduled but not

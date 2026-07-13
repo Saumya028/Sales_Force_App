@@ -314,15 +314,6 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
             final data = snapshot.data;
             final visibleStops = data != null ? _applyFilter(data.stops) : <_StopData>[];
 
-            if (!loading && data != null && !_boundsFitted && data.stops.isNotEmpty) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _fitBounds(data);
-                  setState(() => _boundsFitted = true);
-                }
-              });
-            }
-
             return Column(
               children: [
                 _buildHeader(),
@@ -536,7 +527,11 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
             onMapCreated: (controller) {
               _mapController = controller;
               if (!_boundsFitted) {
-                WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds(data));
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _fitBounds(data);
+                  setState(() => _boundsFitted = true);
+                });
               }
             },
           ),
