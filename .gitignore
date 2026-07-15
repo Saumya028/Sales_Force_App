@@ -72,3 +72,12 @@ supabase/.branches/
 .svn/
 .swiftpm/
 migrate_working_dir/
+
+# Real secrets — copy env.example.json to env.json and fill in real values.
+# Never commit env.json.
+env.json
+
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
