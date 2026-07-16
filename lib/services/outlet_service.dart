@@ -7,14 +7,11 @@ class OutletService {
 
   static const String dealerPhotosBucket = 'dealer-photos';
 
-  /// Returns outlets assigned to the currently logged-in salesperson.
+  /// Returns the outlets on the current salesperson's assigned route
+  /// (filtering is done by RLS via profiles.current_route_id — see
+  /// routes_redesign_migration.sql — not by any client-side filter here).
   Future<List<Outlet>> getMyOutlets() async {
-    final userId = _client.auth.currentUser!.id;
-    final data = await _client
-        .from('outlets')
-        .select()
-        .eq('assigned_salesperson_id', userId)
-        .order('name');
+    final data = await _client.from('outlets').select().order('name');
     return (data as List).map((e) => Outlet.fromJson(e)).toList();
   }
 
@@ -36,9 +33,11 @@ class OutletService {
     return _client.storage.from(dealerPhotosBucket).getPublicUrl(path);
   }
 
-  /// Adds a brand-new dealer discovered on the salesperson's beat and
-  /// assigns it to them, so it's immediately available for placing an
-  /// order or recording a visit outcome.
+  /// Adds a brand-new dealer discovered on the salesperson's beat. It's
+  /// automatically stamped with whichever route the salesperson is
+  /// currently assigned to (via a DB trigger — see
+  /// routes_redesign_migration.sql), so it's immediately visible to
+  /// anyone else later assigned that same route too.
   Future<Outlet> createOutlet({
     required String name,
     String? address,
@@ -51,7 +50,6 @@ class OutletService {
     double? latitude,
     double? longitude,
   }) async {
-    final userId = _client.auth.currentUser!.id;
     final payload = Outlet(
       id: '',
       name: name.trim(),
@@ -64,8 +62,7 @@ class OutletService {
       businessCardPhotoUrl: businessCardPhotoUrl,
       latitude: latitude,
       longitude: longitude,
-    ).toInsertJson()
-      ..['assigned_salesperson_id'] = userId;
+    ).toInsertJson();
 
     final data = await _client
         .from('outlets')

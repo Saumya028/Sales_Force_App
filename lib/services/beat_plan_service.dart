@@ -1,12 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/beat_plan.dart';
-import '../models/outlet.dart';
 
 class BeatPlanService {
   final SupabaseClient _client = Supabase.instance.client;
 
   /// Returns today's beat plan for the current salesperson, or `null` if
-  /// their manager hasn't assigned one yet.
+  /// their manager hasn't set one — purely the cosmetic "Assigned Area"
+  /// banner on the Home dashboard. The Territory screen's actual shop
+  /// list now comes from RouteService/OutletService instead (see
+  /// routes_redesign_migration.sql).
   Future<BeatPlan?> getTodayPlan() async {
     final userId = _client.auth.currentUser!.id;
     final today = DateTime.now();
@@ -22,19 +24,5 @@ class BeatPlanService {
 
     if (data == null) return null;
     return BeatPlan.fromJson(data);
-  }
-
-  /// The specific dealers an Admin attached to [beatPlanId] via the
-  /// "Assign Route" screen. This is what the Territory map plots — not
-  /// every outlet the salesperson has ever been assigned.
-  Future<List<Outlet>> getRouteOutlets(String beatPlanId) async {
-    final data = await _client
-        .from('route_outlets')
-        .select('outlets(*)')
-        .eq('beat_plan_id', beatPlanId);
-    return (data as List)
-        .where((row) => row['outlets'] != null)
-        .map((row) => Outlet.fromJson(row['outlets']))
-        .toList();
   }
 }

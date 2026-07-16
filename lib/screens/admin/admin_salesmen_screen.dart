@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/profile.dart';
 import '../../models/beat_plan.dart';
-import '../../models/outlet.dart';
+import '../../models/sales_route.dart';
 import '../../models/admin_leave_request.dart';
 import '../../services/admin_user_service.dart';
 import '../../services/admin_beat_plan_service.dart';
+import '../../services/admin_route_service.dart';
 import '../../services/admin_leave_service.dart';
 import 'add_salesman_screen.dart';
+import 'admin_routes_screen.dart';
 
 /// Admin's "Manage Salesmen" hub: two tabs —
-///  1. Salesmen — add, deactivate/reactivate, assign a daily route
+///  1. Salesmen — add, deactivate/reactivate, assign a route (see
+///     "Manage Routes" in the app bar for building routes/shop lists)
 ///  2. Leave Requests — approve/reject, newest first
 class AdminSalesmenScreen extends StatefulWidget {
   const AdminSalesmenScreen({super.key});
@@ -23,6 +26,7 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
     with SingleTickerProviderStateMixin {
   final _userService = AdminUserService();
   final _beatPlanService = AdminBeatPlanService();
+  final _routeService = AdminRouteService();
   final _leaveService = AdminLeaveService();
 
   late final TabController _tabController;
@@ -112,33 +116,27 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
     }
   }
 
-  Future<void> _assignRoute(Profile profile, BeatPlan? existingPlan) async {
-    final zoneController = TextEditingController(text: existingPlan?.zoneName ?? '');
-    final coverageController = TextEditingController(
-      text: existingPlan?.coverageKm != null ? existingPlan!.coverageKm!.toStringAsFixed(1) : '',
-    );
-    DateTime selectedDate = DateTime.now();
-
-    // Fetch this salesman's dealers up front, plus which ones are
-    // already on today's route (if we're editing an existing plan), so
-    // the dialog can show a pre-checked shop list.
-    List<Outlet> outlets;
-    Set<String> selectedOutletIds;
+  Future<void> _assignRoute(Profile profile) async {
+    List<SalesRoute> routes;
     try {
-      final results = await Future.wait([
-        _beatPlanService.getSalesmanOutlets(profile.id),
-        existingPlan != null
-            ? _beatPlanService.getRouteOutletIds(existingPlan.id)
-            : Future.value(<String>[]),
-      ]);
-      outlets = results[0] as List<Outlet>;
-      selectedOutletIds = (results[1] as List<String>).toSet();
+      routes = await _routeService.getAllRoutes();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load dealers: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load routes: $e')));
       }
       return;
     }
+
+    if (routes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No routes yet — create one first from "Manage Routes".')),
+        );
+      }
+      return;
+    }
+
+    String? selectedRouteId = routes.any((r) => r.id == profile.currentRouteId) ? profile.currentRouteId : null;
 
     final result = await showDialog<bool>(
       context: context,
@@ -149,107 +147,33 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
               title: Text('Assign Route — ${profile.fullName ?? 'Salesman'}'),
               content: SizedBox(
                 width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: zoneController,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          labelText: 'Zone / Area Name *',
-                          hintText: 'e.g. South Delhi Zone-3',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: coverageController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Coverage (km)',
-                          hintText: 'Optional',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                            lastDate: DateTime.now().add(const Duration(days: 60)),
-                          );
-                          if (picked != null) setDialogState(() => selectedDate = picked);
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(labelText: 'Date'),
-                          child: Text(DateFormat('d MMM yyyy').format(selectedDate)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Shops on this route (${selectedOutletIds.length} selected)',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Only checked shops will appear on this salesman\'s route map.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                      const SizedBox(height: 8),
-                      if (outlets.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            'This salesman has no dealers assigned yet.',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        )
-                      else
-                        Container(
-                          constraints: const BoxConstraints(maxHeight: 260),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ListView(
-                            shrinkWrap: true,
-                            children: outlets.map((outlet) {
-                              final checked = selectedOutletIds.contains(outlet.id);
-                              return CheckboxListTile(
-                                dense: true,
-                                value: checked,
-                                title: Text(outlet.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                subtitle: outlet.address != null && outlet.address!.isNotEmpty
-                                    ? Text(outlet.address!, maxLines: 1, overflow: TextOverflow.ellipsis)
-                                    : (outlet.latitude == null
-                                        ? const Text('No GPS location saved', style: TextStyle(color: Colors.orange))
-                                        : null),
-                                onChanged: (v) {
-                                  setDialogState(() {
-                                    if (v == true) {
-                                      selectedOutletIds.add(outlet.id);
-                                    } else {
-                                      selectedOutletIds.remove(outlet.id);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pick which route this salesman covers. Shops on that route become '
+                      'visible to them immediately — no need to pick shops here.',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRouteId,
+                      decoration: const InputDecoration(labelText: 'Route', border: OutlineInputBorder()),
+                      items: routes
+                          .map((r) => DropdownMenuItem(value: r.id, child: Text(r.name)))
+                          .toList(),
+                      onChanged: (v) => setDialogState(() {
+                        selectedRouteId = v;
+                      }),
+                    ),
+                  ],
                 ),
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
                 FilledButton(
-                  onPressed: () {
-                    if (zoneController.text.trim().isEmpty) return;
-                    Navigator.pop(context, true);
-                  },
+                  onPressed: selectedRouteId == null ? null : () => Navigator.pop(context, true),
                   child: const Text('Assign'),
                 ),
               ],
@@ -259,20 +183,15 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
       },
     );
 
-    if (result != true) return;
+    if (result != true || selectedRouteId == null) return;
 
-    final coverage = double.tryParse(coverageController.text.trim());
     try {
-      final beatPlanId = await _beatPlanService.assignRoute(
-        salespersonId: profile.id,
-        zoneName: zoneController.text,
-        coverageKm: coverage,
-        date: selectedDate,
-      );
-      await _beatPlanService.setRouteOutlets(
-        beatPlanId: beatPlanId,
-        outletIds: selectedOutletIds.toList(),
-      );
+      final route = routes.firstWhere((r) => r.id == selectedRouteId);
+      await _routeService.assignRouteToSalesperson(salespersonId: profile.id, routeId: route.id);
+      // Cosmetic only: keeps the salesperson Home dashboard's "Assigned
+      // Area" banner in sync. Actual shop visibility already comes from
+      // the current_route_id update above.
+      await _beatPlanService.assignRoute(salespersonId: profile.id, zoneName: route.name);
       _refreshSalesmen();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Route assigned.')));
@@ -335,6 +254,16 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Salesmen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.route_outlined),
+            tooltip: 'Manage Routes',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminRoutesScreen()),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [Tab(text: 'Salesmen'), Tab(text: 'Leave Requests')],
@@ -392,7 +321,7 @@ class _AdminSalesmenScreenState extends State<AdminSalesmenScreen>
                   return _SalesmanCard(
                     profile: profile,
                     todayPlan: plan,
-                    onAssignRoute: () => _assignRoute(profile, plan),
+                    onAssignRoute: () => _assignRoute(profile),
                     onToggleStatus: () => _toggleStatus(profile),
                   );
                 },

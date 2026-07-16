@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import '../models/beat_plan.dart';
+import '../models/sales_route.dart';
 import '../models/outlet.dart';
 import '../models/sales_order.dart';
-import '../services/beat_plan_service.dart';
+import '../services/route_service.dart';
+import '../services/outlet_service.dart';
 import '../services/order_service.dart';
 import 'outlet_detail_screen.dart';
 
@@ -34,17 +35,17 @@ class _StopData {
 }
 
 class _RouteData {
-  final BeatPlan? plan;
+  final SalesRoute? route;
   final List<_StopData> stops;
   final Position? myPosition;
-  _RouteData({required this.plan, required this.stops, required this.myPosition});
+  _RouteData({required this.route, required this.stops, required this.myPosition});
 }
 
 /// "Territory" — a live Google Map of the shops on the salesperson's
-/// route for today (as attached by an Admin via "Assign Route"), plotted
-/// relative to the salesperson's current GPS location, with status
-/// filters and a distance-sorted list underneath. Opened from the
-/// "View Route" quick action on the Home dashboard.
+/// currently-assigned route (set by an Admin via "Assign Route"),
+/// plotted relative to the salesperson's current GPS location, with
+/// status filters and a distance-sorted list underneath. Opened from
+/// the "View Route" quick action on the Home dashboard.
 class TerritoryScreen extends StatefulWidget {
   const TerritoryScreen({super.key});
 
@@ -53,7 +54,8 @@ class TerritoryScreen extends StatefulWidget {
 }
 
 class _TerritoryScreenState extends State<TerritoryScreen> {
-  final _beatPlanService = BeatPlanService();
+  final _routeService = RouteService();
+  final _outletService = OutletService();
   final _orderService = OrderService();
   final _filterScrollController = ScrollController();
 
@@ -93,15 +95,15 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
   }
 
   Future<_RouteData> _load() async {
-    final plan = await _beatPlanService.getTodayPlan();
+    final route = await _routeService.getMyCurrentRoute();
     final myPosition = await _getMyPosition();
 
-    if (plan == null) {
-      return _RouteData(plan: null, stops: [], myPosition: myPosition);
+    if (route == null) {
+      return _RouteData(route: null, stops: [], myPosition: myPosition);
     }
 
     final results = await Future.wait([
-      _beatPlanService.getRouteOutlets(plan.id),
+      _outletService.getMyOutlets(),
       _orderService.getTodayOrders(),
     ]);
     final outlets = results[0] as List<Outlet>;
@@ -137,7 +139,7 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
       return a.distanceKm!.compareTo(b.distanceKm!);
     });
 
-    return _RouteData(plan: plan, stops: stops, myPosition: myPosition);
+    return _RouteData(route: route, stops: stops, myPosition: myPosition);
   }
 
   void _refresh() {
@@ -317,7 +319,7 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
             return Column(
               children: [
                 _buildHeader(),
-                if (!loading && data?.plan != null) ...[
+                if (!loading && data?.route != null) ...[
                   _buildFilterRow(),
                   const SizedBox(height: 10),
                 ],
@@ -325,7 +327,7 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
                   const Expanded(child: Center(child: CircularProgressIndicator()))
                 else if (snapshot.hasError)
                   Expanded(child: Center(child: Text('Error: ${snapshot.error}')))
-                else if (data?.plan == null)
+                else if (data?.route == null)
                   Expanded(child: _buildNoRouteState())
                 else ...[
                   _buildMap(data!),
@@ -375,13 +377,13 @@ class _TerritoryScreenState extends State<TerritoryScreen> {
           Icon(Icons.map_outlined, size: 56, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           const Text(
-            'No route assigned for today',
+            'No route assigned yet',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
-            'Ask your manager to assign today\'s route and shops from the Admin dashboard.',
+            'Ask your manager to assign you a route from the Admin dashboard.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600),
           ),
