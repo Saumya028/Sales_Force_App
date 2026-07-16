@@ -44,7 +44,9 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
   }
 
   void _refreshPastRequests() {
-    setState(() => _pastRequestsFuture = _leaveService.getMyLeaveRequests());
+    setState(() {
+      _pastRequestsFuture = _leaveService.getMyLeaveRequests();
+    });
   }
 
   Future<void> _pickStartDate() async {

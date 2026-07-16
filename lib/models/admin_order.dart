@@ -38,4 +38,14 @@ class AdminOrder {
       adminRemarks: json['admin_remarks'],
     );
   }
+
+  /// Human-friendly order number for display (e.g. "ORD-2025-4821"), same
+  /// derivation as SalesOrder.displayOrderNumber so the two sides show a
+  /// matching number for the same underlying order.
+  String get displayOrderNumber {
+    final digits = id.replaceAll(RegExp(r'[^0-9]'), '');
+    final tag = (digits.isNotEmpty ? digits : id.hashCode.abs().toString())
+        .padLeft(4, '0');
+    return 'ORD-${createdAt.year}-${tag.substring(tag.length - 4)}';
+  }
 }

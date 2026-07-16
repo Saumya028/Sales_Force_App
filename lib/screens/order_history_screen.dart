@@ -82,7 +82,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _ordersFuture = _orderService.getMyOrders());
+    setState(() {
+      _ordersFuture = _orderService.getMyOrders();
+    });
     await _ordersFuture;
   }
 

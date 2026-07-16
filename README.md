@@ -95,11 +95,15 @@ insert into outlets (name, address, contact_person, contact_number, assigned_sal
 
 ## Step 5 — Plug your credentials into the app
 
-Open `lib/config/supabase_config.dart` and replace the placeholders:
+Credentials (Supabase + Google Maps) are no longer hardcoded in source —
+they're read from a git-ignored `env.json` at the project root via Flutter's
+`--dart-define-from-file`. See **"Environment configuration"** further down
+for the full setup (Android/iOS/web). The short version:
 
-```dart
-static const String url = 'https://YOUR_PROJECT_ID.supabase.co';
-static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
+```bash
+cp env.example.json env.json
+# then edit env.json with your real Supabase URL/anon key and Maps API key
+flutter run -d chrome --dart-define-from-file=env.json
 ```
 
 ## Step 5b — Set up the Admin role
@@ -212,32 +216,105 @@ their *own* route.
 
 Run `flutter pub get` first (pulls in `google_maps_flutter`), then
 `flutter create .` if you haven't yet (Step 7) so the platform folders
-exist, then:
-
-**Android** — in `android/app/src/main/AndroidManifest.xml`, inside
-`<application>` (as a sibling of `<activity>`):
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_API_KEY_HERE" />
-```
-Also add, inside `<manifest>`, above `<application>` (same as Step
-5c-2's location permissions — skip if already present):
+exist. Keys are no longer hardcoded into these native files — they're
+pulled from the same `env.json` you set up in Step 5. Full setup for
+Android, iOS, and web (which needs its own approach — no
+`AndroidManifest.xml` equivalent exists for web) is in **"Environment
+configuration"** below. Also add, inside `<manifest>` in
+`AndroidManifest.xml`, above `<application>` (same as Step 5c-2's
+location permissions — skip if already present):
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 ```
-
-**iOS** — in `ios/Runner/AppDelegate.swift`, add the import and one line
-in `application(_:didFinishLaunchingWithOptions:)` *before* the
-`GeneratedPluginRegistrant.register(...)` call:
-```swift
-import GoogleMaps
-// ...
-GMSServices.provideAPIKey("YOUR_API_KEY_HERE")
-```
 And confirm `ios/Runner/Info.plist` still has the location keys from
 Step 5c-2 (`NSLocationWhenInUseUsageDescription`, etc).
+
+### Environment configuration (env.json)
+
+All three secrets — Supabase URL, Supabase anon key, and the Google
+Maps API key — live in one git-ignored `env.json` at the project root,
+never hardcoded in source.
+
+**1. Create your local env file:**
+```bash
+cp env.example.json env.json
+```
+Fill in your real values:
+```json
+{
+  "SUPABASE_URL": "https://YOUR_PROJECT_ID.supabase.co",
+  "SUPABASE_ANON_KEY": "YOUR_SUPABASE_ANON_KEY",
+  "MAPS_API_KEY": "YOUR_GOOGLE_MAPS_API_KEY"
+}
+```
+
+**2. Run/build with `--dart-define-from-file`** — this is what makes
+`env.json` reach `SupabaseConfig` and `MapsConfig` in Dart code:
+```bash
+flutter run -d chrome --dart-define-from-file=env.json
+flutter run --dart-define-from-file=env.json          # Android/iOS device
+flutter build web --dart-define-from-file=env.json
+flutter build apk --dart-define-from-file=env.json
+```
+(Tip: in VS Code / Android Studio run configs, add
+`--dart-define-from-file=env.json` to "Additional run args" so you
+don't have to type it every time.)
+
+**3. Web** — no `<script>` tag needed in `web/index.html` anymore;
+delete it if you added one earlier:
+```html
+<!-- delete this line -->
+<script src="https://maps.googleapis.com/maps/api/js?key=..."></script>
+```
+`lib/main.dart` now injects it at startup instead
+(`injectGoogleMapsScript(MapsConfig.apiKey)`, see
+`lib/web/maps_script_loader.dart`), using the key from `env.json`
+above. Note this is about not committing the key to git, not about
+hiding it from users — a web Maps key is always visible in the
+browser's network tab; Google expects you to lock it down with an
+HTTP-referrer restriction on the key itself (Cloud console → your key
+→ **Application restrictions**), not by hiding the string.
+
+**4. Android** — `env.json` is JSON, but Gradle needs it as build
+inputs, so `android/app/build.gradle` reads it directly. Add this
+near the top of `android/app/build.gradle` (outside the `android {}`
+block), then reference the value inside `defaultConfig {}`:
+```groovy
+import groovy.json.JsonSlurper
+
+def envFile = rootProject.file("../../env.json")
+def envJson = envFile.exists()
+    ? new JsonSlurper().parseText(envFile.text)
+    : [:]
+
+android {
+    // ...
+    defaultConfig {
+        // ...existing lines...
+        manifestPlaceholders["mapsApiKey"] = envJson["MAPS_API_KEY"] ?: ""
+    }
+}
+```
+Then in `android/app/src/main/AndroidManifest.xml`, inside
+`<application>` (as a sibling of `<activity>`), reference the
+placeholder instead of a literal key:
+```xml
+<meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="${mapsApiKey}" />
+```
+This way the key is filled in at Gradle build time from `env.json`
+and never appears as a literal string in the manifest. No extra
+Flutter/Gradle flag is needed for this part — it reads the file
+directly whenever you run `flutter run` or `flutter build apk`.
+
+**5. iOS** (optional, same idea) — in `ios/Runner/AppDelegate.swift`,
+keep `GMSServices.provideAPIKey(...)`, but load the value from
+`env.json` via an Xcode Run Script build phase instead of typing it
+literally, the same way `manifestPlaceholders` does for Android. Ask
+if you want the exact script — it's a few more lines than Android's
+since Xcode doesn't have Gradle's built-in scripting.
 
 ### How it behaves
 

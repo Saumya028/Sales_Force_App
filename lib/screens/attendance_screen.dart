@@ -60,7 +60,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  void _refresh() => setState(() => _future = _load());
+  void _refresh() => setState(() {
+        _future = _load();
+      });
 
   void _changeMonth(int delta) {
     setState(() {

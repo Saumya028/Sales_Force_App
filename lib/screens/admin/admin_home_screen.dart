@@ -29,7 +29,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _future = _dashboardService.loadOverview();
   }
 
-  void _refresh() => setState(() => _future = _dashboardService.loadOverview());
+  void _refresh() => setState(() {
+        _future = _dashboardService.loadOverview();
+      });
 
   String _formatLakhs(double amount) {
     if (amount >= 100000) return '₹${(amount / 100000).toStringAsFixed(1)}L';
