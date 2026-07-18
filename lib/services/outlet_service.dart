@@ -15,9 +15,9 @@ class OutletService {
     return (data as List).map((e) => Outlet.fromJson(e)).toList();
   }
 
-  /// Uploads a dealer photo (Shop Front / Business Card) to the public
-  /// `dealer-photos` bucket, scoped to the current user's own folder, and
-  /// returns its public URL to save on the outlet row.
+  /// Uploads a dealer photo (shop front / business card / owner / etc.)
+  /// to the public `dealer-photos` bucket, scoped to the current user's
+  /// own folder, and returns its public URL to save on the outlet row.
   Future<String> uploadDealerPhoto({
     required Uint8List bytes,
     required String fileName,
@@ -41,12 +41,22 @@ class OutletService {
   Future<Outlet> createOutlet({
     required String name,
     String? address,
-    String? ownerName,
+    List<String> ownerNames = const [],
     String? mobileNumber,
     String? gstNumber,
-    String? businessType,
+    String? dealerCategory,
+    String? managerName,
+    String? managerPhone,
+    String? officeTelephone,
+    String? officeEmail,
+    String? website,
+    String? workingHoursFrom,
+    String? workingHoursTo,
+    String? weeklyOff,
     String? shopFrontPhotoUrl,
     String? businessCardPhotoUrl,
+    String? ownerPhotoUrl,
+    List<String> extraPhotoUrls = const [],
     double? latitude,
     double? longitude,
   }) async {
@@ -54,12 +64,22 @@ class OutletService {
       id: '',
       name: name.trim(),
       address: address?.trim(),
-      ownerName: ownerName?.trim(),
+      ownerNames: ownerNames,
       mobileNumber: mobileNumber?.trim(),
       gstNumber: gstNumber?.trim(),
-      businessType: businessType,
+      dealerCategory: dealerCategory,
+      managerName: managerName?.trim(),
+      managerPhone: managerPhone?.trim(),
+      officeTelephone: officeTelephone?.trim(),
+      officeEmail: officeEmail?.trim(),
+      website: website?.trim(),
+      workingHoursFrom: workingHoursFrom,
+      workingHoursTo: workingHoursTo,
+      weeklyOff: weeklyOff,
       shopFrontPhotoUrl: shopFrontPhotoUrl,
       businessCardPhotoUrl: businessCardPhotoUrl,
+      ownerPhotoUrl: ownerPhotoUrl,
+      extraPhotoUrls: extraPhotoUrls,
       latitude: latitude,
       longitude: longitude,
     ).toInsertJson();

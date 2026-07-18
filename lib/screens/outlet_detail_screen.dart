@@ -80,11 +80,19 @@ class _OutletDetailScreenState extends State<OutletDetailScreen> {
                 children: [
                   Text(outlet.address ?? '', style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 4),
-                  if (outlet.ownerName != null) Text('Owner: ${outlet.ownerName}'),
+                  if (outlet.ownerNames.isNotEmpty)
+                    Text('Owner${outlet.ownerNames.length > 1 ? 's' : ''}: ${outlet.ownerNames.join(', ')}'),
                   if (outlet.mobileNumber != null) Text('Phone: ${outlet.mobileNumber}'),
+                  if (outlet.dealerCategory != null) Text('Category: ${outlet.dealerCategory}'),
                   if (outlet.gstNumber != null) Text('GST: ${outlet.gstNumber}'),
-                  if (outlet.businessType != null)
-                    Text('Type: ${outlet.businessType![0].toUpperCase()}${outlet.businessType!.substring(1)}'),
+                  if (outlet.managerName != null || outlet.managerPhone != null)
+                    Text('Manager/Accountant: ${[outlet.managerName, outlet.managerPhone].where((e) => e != null && e.isNotEmpty).join(' · ')}'),
+                  if (outlet.officeTelephone != null) Text('Office Tel: ${outlet.officeTelephone}'),
+                  if (outlet.officeEmail != null) Text('Office Email: ${outlet.officeEmail}'),
+                  if (outlet.website != null) Text('Website/Instagram: ${outlet.website}'),
+                  if (outlet.workingHoursFrom != null || outlet.workingHoursTo != null)
+                    Text('Hours: ${outlet.workingHoursFrom ?? '?'} - ${outlet.workingHoursTo ?? '?'}'),
+                  if (outlet.weeklyOff != null) Text('Weekly Off: ${outlet.weeklyOff}'),
                   const SizedBox(height: 32),
                   const Text('Visit Outcome', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
