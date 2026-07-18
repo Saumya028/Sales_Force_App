@@ -81,7 +81,13 @@ class AttendanceService {
           'salesperson_id': userId,
           'attendance_date': _todayStr(),
           'status': status,
-          'check_in_time': now.toIso8601String(),
+          // Always send an explicit UTC instant ('...Z'). If we sent a
+          // local-time string with no offset, Postgres (UTC session tz)
+          // would interpret it as if it *were* UTC, silently shifting it
+          // by the device's timezone offset (e.g. +5:30 for IST) — which
+          // is exactly what caused check-in times to show hours in the
+          // future for Indian users.
+          'check_in_time': now.toUtc().toIso8601String(),
         })
         .select()
         .single();
@@ -110,7 +116,7 @@ class AttendanceService {
     final data = await _client
         .from('attendance')
         .update({
-          'check_out_time': now.toIso8601String(),
+          'check_out_time': now.toUtc().toIso8601String(),
           'status': newStatus,
         })
         .eq('salesperson_id', userId)
