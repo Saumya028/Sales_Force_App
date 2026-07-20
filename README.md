@@ -179,6 +179,32 @@ Business Card photos, and an auto-captured GPS location.
    `contact_number` columns from `add_outlet_migration.sql` (Step 5c), so
    that migration must be run first if you haven't already.
 
+## Step 5c-2b — "Add New Dealer" v2 (manager's expanded field list)
+
+The Add Dealer form was expanded again to match a fuller field list:
+multiple Owner Names, Manager/Accountant name + phone, Office Telephone,
+Office Email, Website/Instagram, Address, Dealer Category (General
+Store/Stationery/Medical Store/etc., with a free-text "Other"), Working
+Hours (from/to), Weekly Off, GST Number, photos (Shop Front, Business
+Card, Owner, plus any number of extra photos), and GPS — either
+auto-captured or fine-tuned by dragging a pin on a map.
+
+1. In **SQL Editor**, paste the contents of
+   `supabase/add_dealer_fields_v2_migration.sql` and run it (after
+   `add_dealer_fields_migration.sql`). This adds `owner_names`,
+   `dealer_category`, `manager_name`, `manager_phone`,
+   `office_telephone`, `office_email`, `website`, `working_hours_from`,
+   `working_hours_to`, `weekly_off`, `owner_photo_url`, and
+   `extra_photo_urls`, and backfills `owner_names` from the old
+   `contact_person` column so existing dealers keep their owner name.
+2. Run `flutter pub get` — the map-pin picker uses `google_maps_flutter`,
+   which was already a dependency (used by the Territory map), so no new
+   package is required.
+3. The old `business_type` field (Retailer/Wholesaler/Distributor) is no
+   longer shown on the Add Dealer form — it's replaced by the broader
+   `dealer_category` field. The column itself is left in the database
+   for any old rows; it isn't dropped.
+
 ## Step 5c-3 — "Territory" live map (View Route)
 
 The **View Route** quick action on the Home tab (previously a "Coming

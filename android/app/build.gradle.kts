@@ -4,9 +4,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Reads MAPS_API_KEY out of env.json at build time, so it never needs
+// to be a literal string in AndroidManifest.xml.
+val envFile = rootProject.file("../env.json")
+val mapsApiKey: String = if (envFile.exists()) {
+    Regex("\"MAPS_API_KEY\"\\s*:\\s*\"([^\"]*)\"")
+        .find(envFile.readText())
+        ?.groupValues?.get(1) ?: ""
+} else ""
+
 android {
     namespace = "com.example.fmcg_salesman_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -15,20 +24,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.fmcg_salesman_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

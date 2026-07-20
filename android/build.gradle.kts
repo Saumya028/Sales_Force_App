@@ -1,8 +1,3 @@
-import org.json.JSONObject
-
-val envFile = rootProject.file("../../env.json")
-val envJson = if (envFile.exists()) JSONObject(envFile.readText()) else JSONObject()
-
 allprojects {
     repositories {
         google()
