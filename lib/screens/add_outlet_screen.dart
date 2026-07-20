@@ -89,6 +89,7 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
   final List<XFile> _extraImages = [];
 
   _LocationStatus _locationStatus = _LocationStatus.capturing;
+  String? _locationErrorMessage;
   Position? _position;
   // Set when the salesperson manually adjusts the pin on the map;
   // overrides the auto-captured GPS position on save.
@@ -122,21 +123,44 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
   }
 
   Future<void> _captureLocation() async {
-    setState(() => _locationStatus = _LocationStatus.capturing);
+    setState(() {
+      _locationStatus = _LocationStatus.capturing;
+      _locationErrorMessage = null;
+    });
     try {
+      // Checked before permission, since a disabled location service is
+      // the single most common cause on real devices and gives a clearer
+      // message than a permission failure would.
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception(
+          'Location is turned off on this phone. Enable Location in your '
+          'phone\'s quick settings, then tap to retry.',
+        );
+      }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw Exception('Location permission denied');
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception(
+          'Location permission is blocked for this app. Open phone '
+          'Settings > Apps > this app > Permissions > Location, and allow it.',
+        );
       }
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('Location services disabled');
+      if (permission == LocationPermission.denied) {
+        throw Exception(
+          'Location permission was not granted. Tap to retry and allow '
+          'it when prompted.',
+        );
       }
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw Exception(
+          'Could not get a GPS fix in time (weak signal / indoors). '
+          'Tap to retry, or use "Set on map" below.',
+        ),
       );
       if (!mounted) return;
       setState(() {
@@ -144,9 +168,15 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
         _manualLatLng = null;
         _locationStatus = _LocationStatus.success;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _locationStatus = _LocationStatus.failed);
+      setState(() {
+        _locationStatus = _LocationStatus.failed;
+        // Falls back to a generic message for anything unexpected (e.g. the
+        // location permission isn't declared in AndroidManifest.xml at all,
+        // which surfaces as a plain PlatformException here).
+        _locationErrorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
 
@@ -748,12 +778,6 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
   }
 
   Widget _buildGpsCard() {
-    final Color dotColor = switch (_locationStatus) {
-      _LocationStatus.success => const Color(0xFF2ECC71),
-      _LocationStatus.failed => const Color(0xFFE74C3C),
-      _LocationStatus.capturing => Colors.orange,
-    };
-
     String subtitle;
     if (_locationStatus == _LocationStatus.capturing) {
       subtitle = 'Capturing location...';
@@ -766,7 +790,7 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
       subtitle =
           '${lat.abs().toStringAsFixed(4)}° $ns, ${lng.abs().toStringAsFixed(4)}° $ew · $source';
     } else {
-      subtitle = 'Location unavailable · Tap to retry';
+      subtitle = _locationErrorMessage ?? 'Location unavailable · Tap to retry';
     }
 
     return GestureDetector(
@@ -814,10 +838,12 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
                 child: const Text('Adjust on map', style: TextStyle(color: _kBlue)),
               )
             else
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+              // Auto-capture failed, but the salesperson shouldn't be stuck:
+              // let them drop a pin manually so the form is still saveable.
+              TextButton(
+                onPressed: _adjustOnMap,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: const Text('Set on map', style: TextStyle(color: _kBlue)),
               ),
           ],
         ),
