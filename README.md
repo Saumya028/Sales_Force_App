@@ -39,7 +39,8 @@ fmcg_salesman_app/
     ├── company_id_login_migration.sql      # Supports the Company ID login screen (run fourth)
     ├── beat_and_attendance_migration.sql   # Beat plans ("Assigned Area") + attendance (run fifth)
     ├── leave_and_checkout_migration.sql    # Check-out + leave requests + attachments (run sixth)
-    └── admin_management_migration.sql      # Admin "Manage Salesmen" (add/remove/routes) (run seventh)
+    ├── admin_management_migration.sql      # Admin "Manage Salesmen" (add/remove/routes) (run seventh)
+    └── location_tracking_migration.sql     # Live Tracking — GPS pings table (run eighth)
 ```
 
 ---
@@ -526,6 +527,48 @@ existing zone/date fields, so no separate screen was needed.
      still `pending`.
 4. Tapping **Orders** opens the existing Pending Approval / All Orders
    screen from Step 5b, unchanged.
+
+## Step 5h — Live Tracking (see where every salesman is, right now)
+
+1. In **SQL Editor**, paste the contents of
+   `supabase/location_tracking_migration.sql` and run it (after
+   `schema.sql`, `admin_migration.sql`, and
+   `beat_and_attendance_migration.sql`). This adds a `location_pings`
+   table — one row per GPS reading a salesman's app sends while
+   they're on shift — readable only by an Admin (`is_admin()`), and
+   insertable only by the salesperson it belongs to.
+2. Run `flutter pub get` — this pulls in the new `battery_plus`
+   dependency (used to report each salesman's phone battery level
+   alongside their location).
+3. **How tracking works (salesman side):** tracking is
+   **foreground-only** — pings are sent roughly every 45 seconds only
+   while the app is open and the salesman is on shift. It starts the
+   moment they tap **Start Shift** on the Attendance tab, and stops
+   the moment they tap **End Shift** — no separate toggle, and no
+   extra permission beyond the location permission the app already
+   asks for (see `AndroidManifest.xml`). If the salesman minimizes the
+   app, pinging pauses and resumes automatically as soon as they
+   reopen it — this trades a perfectly continuous trail for much
+   lower battery use, which is the option chosen for this MVP (see
+   `lib/services/location_tracking_service.dart` if you'd rather
+   switch to always-on background tracking later — it needs the
+   `ACCESS_BACKGROUND_LOCATION` permission and a foreground service,
+   neither of which are set up here).
+4. **Admin side:** the new **Live Track** quick action (red icon, on
+   the Sales Overview home screen) opens:
+   - **Live Tracking list** — every active salesman with their
+     status (Active/Late/Off Duty/Absent), current activity (moving
+     with live speed, stationary, or "last seen" once the app's been
+     backgrounded a while), check-in time, today's visit progress
+     (visited dealers vs. total dealers on their assigned route),
+     orders, and revenue. Auto-refreshes every 30 seconds; pull to
+     refresh works too. The map icon (top right) opens a single map
+     with every salesman's last known pin.
+   - **Salesman detail** (tap any card) — a map with today's GPS
+     trail drawn as a line, current position, speed, and battery
+     level, plus a **Today's Trail** timeline built from their real
+     visit history (`orders` rows) — shift start, then each dealer
+     visited with the time and order value, if any.
 
 ## Step 6 — Install Flutter (if you haven't already)
 

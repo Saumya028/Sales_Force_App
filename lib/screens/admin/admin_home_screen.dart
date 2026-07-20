@@ -5,11 +5,13 @@ import '../../services/auth_service.dart';
 import '../../widgets/coming_soon.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_salesmen_screen.dart';
+import 'admin_live_tracking_screen.dart';
 
 /// The Admin Home dashboard — "Sales Overview". Every stat here reads
-/// real data from Supabase (see AdminDashboardService). The 4 quick
-/// actions route to real screens where they exist (Salesmen, Orders) and
-/// to a "Coming Soon" placeholder otherwise (Dealers, Reports).
+/// real data from Supabase (see AdminDashboardService). The 5 quick
+/// actions route to real screens where they exist (Salesmen, Live
+/// Track, Orders) and to a "Coming Soon" placeholder otherwise
+/// (Dealers, Reports).
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
 
@@ -46,6 +48,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> _openOrders() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+    _refresh();
+  }
+
+  Future<void> _openLiveTracking() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLiveTrackingScreen()));
     _refresh();
   }
 
@@ -245,6 +252,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _buildQuickActions() {
     final actions = [
       _QuickAction(icon: Icons.people_alt, color: const Color(0xFF3D6BFF), label: 'Salesmen', onTap: _openSalesmen),
+      _QuickAction(icon: Icons.near_me, color: const Color(0xFFDC2626), label: 'Live Track', onTap: _openLiveTracking),
       _QuickAction(icon: Icons.inventory_2, color: const Color(0xFF7C3AED), label: 'Orders', onTap: _openOrders),
       _QuickAction(icon: Icons.storefront, color: const Color(0xFF5B4FE9), label: 'Dealers', onTap: _openDealers),
       _QuickAction(icon: Icons.bar_chart, color: const Color(0xFF16A34A), label: 'Reports', onTap: _openReports),

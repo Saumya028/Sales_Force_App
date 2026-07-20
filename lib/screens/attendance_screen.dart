@@ -5,6 +5,7 @@ import '../models/attendance.dart';
 import '../models/leave_request.dart';
 import '../services/attendance_service.dart';
 import '../services/leave_service.dart';
+import '../services/location_tracking_service.dart';
 import 'apply_leave_screen.dart';
 
 /// Attendance tab: today's check-in/out card, a monthly calendar with
@@ -80,6 +81,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() => _actionLoading = true);
     try {
       await _attendanceService.checkIn();
+      LocationTrackingService.instance.start();
       _refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -101,6 +103,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() => _actionLoading = true);
     try {
       final record = await _attendanceService.checkOut();
+      LocationTrackingService.instance.stop();
       _refresh();
       if (mounted) {
         final hours = record.elapsedHours ?? 0;
