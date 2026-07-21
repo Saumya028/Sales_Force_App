@@ -4,6 +4,8 @@ import '../dashboard_screen.dart';
 import '../order_history_screen.dart';
 import '../attendance_screen.dart';
 import '../profile_screen.dart';
+import '../../services/attendance_service.dart';
+import '../../services/location_tracking_service.dart';
 
 /// Top-level shell for the Salesman experience: a bottom navigation bar
 /// with 5 tabs — Home, Visits, Orders, Attendance, Profile — matching the
@@ -18,6 +20,18 @@ class HomeShellScreen extends StatefulWidget {
 
 class _HomeShellScreenState extends State<HomeShellScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // If the app was closed and reopened mid-shift (checked in, not yet
+    // checked out today), resume location pings without making the
+    // salesperson check in again.
+    AttendanceService().getTodayAttendance().then((today) {
+      final onShift = today != null && today.checkOutTime == null;
+      LocationTrackingService.instance.resumeIfAlreadyOnShift(isOnShift: onShift);
+    }).catchError((_) {});
+  }
 
   void _goToTab(int index) => setState(() => _currentIndex = index);
 

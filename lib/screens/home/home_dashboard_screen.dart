@@ -10,6 +10,7 @@ import '../../services/outlet_service.dart';
 import '../../services/order_service.dart';
 import '../../services/beat_plan_service.dart';
 import '../../services/attendance_service.dart';
+import '../../services/location_tracking_service.dart';
 import '../add_outlet_screen.dart';
 import '../outlet_picker_screen.dart';
 import '../today_route_screen.dart';
@@ -116,6 +117,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     setState(() => _startingShift = true);
     try {
       final record = await _attendanceService.checkIn();
+      LocationTrackingService.instance.start();
       _refresh();
       if (mounted) {
         final already = record.checkInTime != null &&

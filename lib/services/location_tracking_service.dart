@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -90,13 +91,17 @@ class LocationTrackingService with WidgetsBindingObserver {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return;
 
-      if (!await Geolocator.isLocationServiceEnabled()) return;
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        debugPrint('[LocationTracking] skipped ping — location services are off on this device');
+        return;
+      }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return; // Silent — the Add Dealer GPS card already surfaces permission problems to the user.
+        debugPrint('[LocationTracking] skipped ping — location permission not granted ($permission)');
+        return; // Silent to the user — the Add Dealer GPS card already surfaces permission problems to them.
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -135,9 +140,13 @@ class LocationTrackingService with WidgetsBindingObserver {
         if (batteryLevel != null) 'battery_level': batteryLevel,
         'recorded_at': DateTime.now().toUtc().toIso8601String(),
       });
-    } catch (_) {
+      debugPrint('[LocationTracking] ping sent (${position.latitude}, ${position.longitude})');
+    } catch (e) {
       // A missed ping shouldn't interrupt the salesperson's flow —
-      // the next timer tick (or the next app resume) retries.
+      // the next timer tick (or the next app resume) retries. Logged
+      // (not shown to the user) so a stuck tracker is debuggable via
+      // `flutter logs` / `adb logcat` instead of failing silently.
+      debugPrint('[LocationTracking] ping failed: $e');
     }
   }
 }

@@ -10,7 +10,10 @@ import 'services/profile_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  injectGoogleMapsScript(MapsConfig.apiKey); // no-op outside web
+  // Awaited (not fire-and-forget) so no screen can render a GoogleMap
+  // before window.google.maps actually exists on web. Resolves
+  // instantly on Android/iOS — see maps_script_loader_stub.dart.
+  await injectGoogleMapsScript(MapsConfig.apiKey);
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
