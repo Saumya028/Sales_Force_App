@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../services/admin_dashboard_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/coming_soon.dart';
+import '../notifications_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_salesmen_screen.dart';
 import 'admin_live_tracking_screen.dart';
@@ -62,6 +63,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       feature: 'Dealer Management',
       detail: 'A company-wide view of every dealer/outlet is coming soon.',
     );
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen(isAdmin: true)));
+    _refresh();
   }
 
   void _openReports() {
@@ -164,7 +170,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => showComingSoon(context, feature: 'Notifications'),
+            onPressed: _openNotifications,
             icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           ),
           Container(

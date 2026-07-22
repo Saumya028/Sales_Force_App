@@ -15,7 +15,7 @@ import '../add_outlet_screen.dart';
 import '../outlet_picker_screen.dart';
 import '../today_route_screen.dart';
 import '../territory_screen.dart';
-import '../../widgets/coming_soon.dart';
+import '../notifications_screen.dart';
 
 /// The Salesman Home dashboard — first tab of the bottom nav.
 /// Every element here reads real data from Supabase:
@@ -172,8 +172,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayRouteScreen())).then((_) => _refresh());
   }
 
-  void _openNotifications() {
-    showComingSoon(context, feature: 'Notifications');
+  Future<void> _openNotifications() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen(isAdmin: false)));
+    _refresh();
   }
 
   @override
