@@ -56,7 +56,7 @@ class NotificationService {
           .limit(20),
       _client
           .from('outlets')
-          .select('id, name, created_at, assigned_salesperson_id, profiles(full_name)')
+          .select('id, name, created_at, route_id, profiles!created_by(full_name), routes(name)')
           .order('created_at', ascending: false)
           .limit(20),
       _client
@@ -72,25 +72,6 @@ class NotificationService {
     final followUps = results[2] as List;
     final newOutlets = results[3] as List;
     final lateAttendance = results[4] as List;
-
-    // Batch-load beat plans so "New Dealer Added" can say which zone the
-    // dealer was added in (best-effort — omitted if there's no beat plan
-    // for that salesperson on that day).
-    final salespersonIds = newOutlets
-        .map((o) => o['assigned_salesperson_id'])
-        .whereType<String>()
-        .toSet()
-        .toList();
-    final zoneByKey = <String, String>{};
-    if (salespersonIds.isNotEmpty) {
-      final plans = await _client
-          .from('beat_plans')
-          .select('salesperson_id, plan_date, zone_name')
-          .inFilter('salesperson_id', salespersonIds);
-      for (final p in plans as List) {
-        zoneByKey['${p['salesperson_id']}|${p['plan_date']}'] = p['zone_name'];
-      }
-    }
 
     final notifications = <AppNotification>[];
 
@@ -138,13 +119,13 @@ class NotificationService {
     for (final d in newOutlets) {
       final name = d['profiles']?['full_name'] ?? 'A salesperson';
       final createdAt = DateTime.parse(d['created_at']).toLocal();
-      final zone = zoneByKey['${d['assigned_salesperson_id']}|${_dateStr(createdAt)}'];
-      final zoneSuffix = zone != null ? ' in $zone zone' : '';
+      final routeName = d['routes']?['name'];
+      final routeSuffix = routeName != null ? ' on $routeName route' : '';
       notifications.add(AppNotification(
         id: 'dealer-${d['id']}',
         kind: NotificationKind.newDealer,
         title: 'New Dealer Added',
-        body: "$name added '${d['name']}'$zoneSuffix",
+        body: "$name added '${d['name']}'$routeSuffix",
         timestamp: createdAt,
       ));
     }
