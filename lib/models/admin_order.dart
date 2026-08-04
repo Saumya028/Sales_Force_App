@@ -9,6 +9,7 @@ class AdminOrder {
   final DateTime createdAt;
   final String? remarks;
   final String? adminRemarks;
+  final int productCount;
 
   AdminOrder({
     required this.id,
@@ -21,6 +22,7 @@ class AdminOrder {
     required this.createdAt,
     this.remarks,
     this.adminRemarks,
+    this.productCount = 0,
   });
 
   factory AdminOrder.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class AdminOrder {
       createdAt: DateTime.parse(json['created_at']),
       remarks: json['remarks'],
       adminRemarks: json['admin_remarks'],
+      productCount: json['order_items'] is List ? (json['order_items'] as List).length : 0,
     );
   }
 

@@ -7,6 +7,7 @@ import '../notifications_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_salesmen_screen.dart';
 import 'admin_live_tracking_screen.dart';
+import 'admin_targets_screen.dart';
 
 /// The Admin Home dashboard — "Sales Overview". Every stat here reads
 /// real data from Supabase (see AdminDashboardService). The 5 quick
@@ -54,6 +55,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> _openLiveTracking() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLiveTrackingScreen()));
+    _refresh();
+  }
+
+  Future<void> _openTargets() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminTargetsScreen()));
     _refresh();
   }
 
@@ -259,6 +265,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final actions = [
       _QuickAction(icon: Icons.people_alt, color: const Color(0xFF3D6BFF), label: 'Salesmen', onTap: _openSalesmen),
       _QuickAction(icon: Icons.near_me, color: const Color(0xFFDC2626), label: 'Live Track', onTap: _openLiveTracking),
+      _QuickAction(icon: Icons.star, color: const Color(0xFFEA8C00), label: 'Targets', onTap: _openTargets),
       _QuickAction(icon: Icons.inventory_2, color: const Color(0xFF7C3AED), label: 'Orders', onTap: _openOrders),
       _QuickAction(icon: Icons.storefront, color: const Color(0xFF5B4FE9), label: 'Dealers', onTap: _openDealers),
       _QuickAction(icon: Icons.bar_chart, color: const Color(0xFF16A34A), label: 'Reports', onTap: _openReports),
@@ -271,9 +278,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: actions.map((a) => Expanded(child: _QuickActionButton(action: a))).toList(),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: actions.sublist(0, 3).map((a) => Expanded(child: _QuickActionButton(action: a))).toList(),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: actions.sublist(3, 6).map((a) => Expanded(child: _QuickActionButton(action: a))).toList(),
+          ),
+        ],
       ),
     );
   }

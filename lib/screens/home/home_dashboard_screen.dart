@@ -5,17 +5,20 @@ import '../../models/outlet.dart';
 import '../../models/sales_order.dart';
 import '../../models/beat_plan.dart';
 import '../../models/attendance.dart';
+import '../../models/sales_target.dart';
 import '../../services/profile_service.dart';
 import '../../services/outlet_service.dart';
 import '../../services/order_service.dart';
 import '../../services/beat_plan_service.dart';
 import '../../services/attendance_service.dart';
 import '../../services/location_tracking_service.dart';
+import '../../services/target_service.dart';
 import '../add_outlet_screen.dart';
 import '../outlet_picker_screen.dart';
 import '../today_route_screen.dart';
 import '../territory_screen.dart';
 import '../notifications_screen.dart';
+import '../my_targets_screen.dart';
 
 /// The Salesman Home dashboard — first tab of the bottom nav.
 /// Every element here reads real data from Supabase:
@@ -45,6 +48,7 @@ class _HomeData {
   final int pendingFollowUps;
   final BeatPlan? beatPlan;
   final AttendanceRecord? attendance;
+  final List<SalesTarget> targets;
 
   _HomeData({
     required this.profile,
@@ -53,6 +57,7 @@ class _HomeData {
     required this.pendingFollowUps,
     required this.beatPlan,
     required this.attendance,
+    required this.targets,
   });
 
   int get visitedOutletCount => todayOrders.map((o) => o.outletId).toSet().length;
@@ -65,9 +70,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   final _orderService = OrderService();
   final _beatPlanService = BeatPlanService();
   final _attendanceService = AttendanceService();
+  final _targetService = TargetService();
 
   late Future<_HomeData> _future;
   bool _startingShift = false;
+
+  String get _currentPeriod {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+  }
 
   @override
   void initState() {
@@ -83,6 +94,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _orderService.getPendingFollowUpsCount(),
       _beatPlanService.getTodayPlan(),
       _attendanceService.getTodayAttendance(),
+      _targetService.getMyTargetsWithProgress(_currentPeriod),
     ]);
     return _HomeData(
       profile: results[0] as Profile,
@@ -91,6 +103,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       pendingFollowUps: results[3] as int,
       beatPlan: results[4] as BeatPlan?,
       attendance: results[5] as AttendanceRecord?,
+      targets: results[6] as List<SalesTarget>,
     );
   }
 
@@ -172,6 +185,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayRouteScreen())).then((_) => _refresh());
   }
 
+  void _viewAllTargets() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => MyTargetsScreen(period: _currentPeriod)))
+        .then((_) => _refresh());
+  }
+
   Future<void> _openNotifications() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen(isAdmin: false)));
     _refresh();
@@ -214,6 +232,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             _buildStatsGrid(data),
                             const SizedBox(height: 16),
                             _buildQuickActions(),
+                            const SizedBox(height: 16),
+                            _buildTargetsCard(data),
                             const SizedBox(height: 16),
                             _buildTodayRoute(data),
                           ],
@@ -482,6 +502,74 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
+  Widget _buildTargetsCard(_HomeData data) {
+    final monthName = DateFormat('MMMM').format(DateTime.now());
+    final targets = data.targets;
+
+    // Prefer one of each type, in this order, to fill up to 3 slots —
+    // matches the mockup's Value / Quantity / New Dealers trio.
+    const preferredOrder = ['value', 'quantity', 'new_dealer', 'product'];
+    final shown = <SalesTarget>[];
+    for (final type in preferredOrder) {
+      final matches = targets.where((t) => t.targetType == type);
+      if (matches.isNotEmpty) shown.add(matches.first);
+      if (shown.length == 3) break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3D6BFF), Color(0xFF1530A6)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('$monthName Targets',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+              TextButton(
+                onPressed: _viewAllTargets,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('View All', style: TextStyle(color: Colors.white.withOpacity(0.95), fontWeight: FontWeight.w600)),
+                    const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (shown.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                'No targets assigned yet this month.',
+                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12.5),
+              ),
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: shown
+                  .map((t) => Expanded(child: _MiniTargetColumn(target: t)))
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTodayRoute(_HomeData data) {
     final latestOrderByOutlet = <String, SalesOrder>{};
     for (final order in data.todayOrders) {
@@ -663,6 +751,45 @@ class _QuickActionButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MiniTargetColumn extends StatelessWidget {
+  final SalesTarget target;
+  const _MiniTargetColumn({required this.target});
+
+  String get _progressLabel {
+    if (target.targetType == 'new_dealer') {
+      return '${target.achievedValue.toStringAsFixed(0)} / ${target.goalValue.toStringAsFixed(0)}';
+    }
+    return target.formattedProgress();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(target.typeFilterLabel,
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: target.progressFraction,
+              minHeight: 6,
+              backgroundColor: Colors.white.withOpacity(0.25),
+              valueColor: const AlwaysStoppedAnimation(Colors.white),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(_progressLabel,
+              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
